@@ -3,10 +3,11 @@ import pandas as pd
 
 
 st.set_page_config(page_title="Kuis Agama Katolik", page_icon="🕊️")
+
+
 st.title("Kuis Formatif: Manusia Sebagai Citra Allah ✝️")
 st.write("Jawablah pertanyaan di bawah ini dengan memilih opsi yang paling tepat.")
 st.divider()
-
 
 try:
     df = pd.read_excel("Soal_Kuis.xlsx")
@@ -21,7 +22,6 @@ try:
         
     st.divider()
 
-    
     if st.button("Kirim Jawaban"):
         benar = 0
         for index, baris in df.iterrows():
@@ -41,5 +41,7 @@ try:
             
 except FileNotFoundError:
     st.error("⚠️ File 'Soal_Kuis.xlsx' tidak ditemukan!")
+except Exception as e:
+    st.error(f"Terjadi kesalahan pada data Excel Anda: {e}")
 except Exception as e:
     st.error(f"Terjadi kesalahan pada data Excel Anda: {e}")
