@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import io
-import json # Tambahan untuk membaca data dari AI
-import google.generativeai as genai # Tambahan untuk memanggil Koki AI
+import json 
+import google.generativeai as genai 
 from supabase import create_client, Client
 
 # --- MENGHUBUNGKAN KE SUPABASE & GEMINI ---
@@ -11,7 +11,6 @@ try:
     key: str = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
     
-    # Mengaktifkan Koki AI Gemini
     gemini_api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=gemini_api_key)
 except Exception as e:
@@ -41,7 +40,6 @@ if menu == "Mulai Kuis (Siswa)":
         if not data_soal:
             st.info("📭 Kulkas soal masih kosong! Guru belum membuat soal di Dapur AI.")
         else:
-            # Menyaring soal agar hanya memunculkan soal sesuai kelas yang dipilih siswa
             df = pd.DataFrame(data_soal)
             if kelas_siswa != "Pilih Kelas":
                 df = df[df['fase_kelas'] == kelas_siswa].reset_index(drop=True)
@@ -156,9 +154,8 @@ elif menu == "Dapur AI (Buat Soal)":
             if topik == "":
                 st.warning("Mohon isi topik materi terlebih dahulu.")
             else:
-                with st.spinner("Koki AI sedang memikirkan soal... Mohon tunggu sekitar 15 detik."):
+                with st.spinner("Koki AI sedang memeriksa menu dan memikirkan soal... Mohon tunggu."):
                     try:
-                        # Memberi instruksi (Prompt) ke Gemini AI
                         prompt = f"""
                         Buatlah {jumlah_soal} soal pilihan ganda mata pelajaran Agama Katolik untuk {fase_kelas} dengan topik "{topik}".
                         Berikan hasilnya HANYA dalam format JSON array yang valid, tanpa teks awalan atau akhiran.
@@ -176,21 +173,40 @@ elif menu == "Dapur AI (Buat Soal)":
                         Penting: Kolom jawaban_benar hanya boleh diisi huruf kapital A, B, C, atau D.
                         """
                         
-                        # Memanggil Gemini AI
-                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        # --- KODE BARU: SISTEM AUTO-DETECT MODEL AI ---
+                        # Meminta daftar menu model langsung dari server Google
+                        daftar_model = []
+                        for m in genai.list_models():
+                            if 'generateContent' in m.supported_generation_methods:
+                                daftar_model.append(m.name)
+                                
+                        # Memilih model yang paling valid dari daftar yang diberikan Google
+                        nama_model = "gemini-1.5-flash" # Tebakan awal
+                        if "models/gemini-1.5-flash" in daftar_model:
+                            nama_model = "gemini-1.5-flash"
+                        elif "models/gemini-1.0-pro" in daftar_model:
+                            nama_model = "gemini-1.0-pro"
+                        elif "models/gemini-pro" in daftar_model:
+                            nama_model = "gemini-pro"
+                        elif len(daftar_model) > 0:
+                            # Jika ketiganya tidak ada, paksa ambil koki pertama yang sedang aktif
+                            nama_model = daftar_model[0].replace("models/", "")
+                        else:
+                            raise Exception("Kunci API valid, tetapi Google menyatakan tidak ada model AI yang aktif untuk akun ini.")
+
+                        # Memanggil AI dengan nama model yang PASTI ada di server
+                        model = genai.GenerativeModel(nama_model)
                         response = model.generate_content(prompt)
+                        # ----------------------------------------------
                         
-                        # Membersihkan teks agar menjadi JSON murni
                         teks_json = response.text.strip()
                         if teks_json.startswith("```json"):
                             teks_json = teks_json[7:]
                         if teks_json.endswith("```"):
                             teks_json = teks_json[:-3]
                             
-                        # Menerjemahkan JSON ke dalam data Python
                         data_ai = json.loads(teks_json)
                         
-                        # Menyimpan satu per satu soal ke brankas Supabase
                         for soal in data_ai:
                             data_simpan = {
                                 "fase_kelas": fase_kelas,
@@ -209,7 +225,7 @@ elif menu == "Dapur AI (Buat Soal)":
                         
                     except Exception as e:
                         st.error(f"❌ Terjadi kesalahan saat AI membuat soal: {e}")
-                        st.info("Saran: Coba klik tombol 'Buat Soal' sekali lagi. Kadang Koki AI butuh waktu.")
+                        st.info("Catatan Teknisi: AI gagal memproses. Silakan coba klik tombol Buat Soal sekali lagi.")
 
     elif password_input != "":
         st.error("🔒 Kata sandi salah!")
