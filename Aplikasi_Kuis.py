@@ -177,7 +177,7 @@ elif menu == "Dapur AI (Buat Soal)":
                         """
                         
                         # Memanggil Gemini AI
-                        model = genai.GenerativeModel('gemini-pro')
+                        model = genai.GenerativeModel('gemini-1.5-flash')
                         response = model.generate_content(prompt)
                         
                         # Membersihkan teks agar menjadi JSON murni
