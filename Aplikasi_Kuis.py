@@ -97,7 +97,7 @@ elif menu == "Dashboard Rekap (Guru)":
         
         try:
             # Mengambil seluruh data nilai dari tabel 'nilai_kuis'
-            respon = supabase.table("nilai_kuis").select("created_at, nama_siswa, kelas, nilai_akhir").order("created_at", descending=True).execute()
+            respon = supabase.table("nilai_kuis").select("created_at, nama_siswa, kelas, nilai_akhir").order("created_at", desc=True).execute()
             data_nilai = respon.data
 
             if data_nilai:
