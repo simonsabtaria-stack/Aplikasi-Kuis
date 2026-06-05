@@ -1,25 +1,32 @@
 import streamlit as st
 import pandas as pd
+from supabase import create_client, Client # TAMBAHAN BARU
+
+# --- MENGHUBUNGKAN KE SUPABASE ---
+try:
+    # Memanggil kunci rahasia dari secrets.toml
+    url: str = st.secrets["SUPABASE_URL"]
+    key: str = st.secrets["SUPABASE_KEY"]
+    supabase: Client = create_client(url, key)
+except Exception as e:
+    st.error("Gagal terhubung ke Supabase. Cek file secrets.toml Anda.")
+# ---------------------------------
 
 st.set_page_config(page_title="Kuis Agama Katolik", page_icon="🕊️")
 
-st.title("Kuis Formatif✝️")
+st.title("Kuis Formatif: Manusia Sebagai Citra Allah ✝️")
 st.write("Jawablah pertanyaan di bawah ini dengan memilih opsi yang paling tepat.")
 st.divider()
 
-# --- BAGIAN BARU: BUKU TAMU (IDENTITAS SISWA) ---
 st.subheader("📝 Isi Identitas Diri")
 nama_siswa = st.text_input("Nama Lengkap (Wajib diisi):")
-# Anda bisa mengubah daftar kelas ini sesuai dengan yang Anda ajar
 kelas_siswa = st.selectbox("Kelas:", ["Pilih Kelas", "Fase D - Kelas 7", "Fase D - Kelas 8", "Fase D - Kelas 9"])
 st.divider()
-# ------------------------------------------------
 
 try:
     df = pd.read_excel("Soal_Kuis.xlsx")
     jawaban_user = {}
 
-    # Membaca dan menampilkan soal dari Excel
     for index, baris in df.iterrows():
         st.write(f"**{baris['No']}. {baris['Pertanyaan']}**")
         pilihan = (baris['Opsi A'], baris['Opsi B'], baris['Opsi C'], baris['Opsi D'])
@@ -30,11 +37,9 @@ try:
     st.divider()
 
     if st.button("Kirim Jawaban"):
-        # VALIDASI: Cek apakah nama dan kelas sudah diisi
         if nama_siswa == "" or kelas_siswa == "Pilih Kelas":
             st.warning("⚠️ Tunggu dulu! Mohon isi Nama Lengkap dan Kelas Anda di bagian atas sebelum mengirim jawaban.")
         else:
-            # Mesin penghitung nilai berjalan
             benar = 0
             for index, baris in df.iterrows():
                 if jawaban_user[index] == baris['Jawaban Benar']:
@@ -43,7 +48,6 @@ try:
             total_soal = len(df)
             nilai_akhir = int((benar / total_soal) * 100)
             
-            # Tampilkan hasil secara personal dengan menyebut nama siswa
             if nilai_akhir == 100:
                 st.success(f"Luar biasa, {nama_siswa}! Nilai Anda Sempurna: {nilai_akhir}")
                 st.balloons() 
@@ -52,9 +56,19 @@ try:
             else:
                 st.error(f"Nilai Anda: {nilai_akhir}. Jangan menyerah, {nama_siswa}, mari perbanyak latihan!")
             
-            # --- AREA PERSIAPAN DATABASE ---
-            # Pesan ini hanya simulasi untuk menunjukkan data siap dikirim
-            st.info(f"💾 Simulasi Sistem: Data atas nama **{nama_siswa}** ({kelas_siswa}) dengan nilai **{nilai_akhir}** siap disetorkan ke brankas Supabase!")
+            # --- BAGIAN BARU: MENGIRIM DATA KE SUPABASE ---
+            try:
+                data_dikirim = {
+                    "nama_siswa": nama_siswa,
+                    "kelas": kelas_siswa,
+                    "nilai_akhir": nilai_akhir
+                }
+                # Menyisipkan data ke tabel 'nilai_kuis'
+                proses_kirim = supabase.table("nilai_kuis").insert(data_dikirim).execute()
+                st.success("✅ Nilai Anda telah berhasil direkam oleh sistem!")
+            except Exception as e:
+                st.error(f"❌ Gagal mengirim nilai ke database: {e}")
+            # ----------------------------------------------
             
 except FileNotFoundError:
     st.error("⚠️ File 'Soal_Kuis.xlsx' tidak ditemukan! Pastikan file berada di folder yang sama.")
