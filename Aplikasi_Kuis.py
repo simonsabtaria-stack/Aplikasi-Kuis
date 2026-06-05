@@ -62,21 +62,74 @@ if menu == "Mulai Kuis (Siswa)":
                     st.error(f"Nilai Anda: {nilai_akhir}. Jangan menyerah, {nama_siswa}, mari perbanyak latihan!")
                 
                 # Mengirim data ke Supabase
-                try:
-                    data_dikirim = {
-                        "nama_siswa": nama_siswa,
-                        "kelas": kelas_siswa,
-                        "nilai_akhir": nilai_akhir
-                    }
-                    supabase.table("nilai_kuis").insert(data_dikirim).execute()
-                    st.success("✅ Nilai Anda telah berhasil direkam oleh sistem!")
-                except Exception as e:
-                    st.error(f"❌ Gagal mengirim nilai ke database: {e}")
+    try:
+        # --- PIPA BARU: MENYEDOT SOAL DARI SUPABASE ---
+        respon_soal = supabase.table("bank_soal").select("*").execute()
+        data_soal = respon_soal.data
+
+        if not data_soal:
+            st.info("📭 Kulkas soal masih kosong! Belum ada soal di dalam Bank Soal.")
+        else:
+            df = pd.DataFrame(data_soal)
+            jawaban_user = {}
+
+            # Mencetak soal dari database ke layar
+            for index, baris in df.iterrows():
+                nomor_soal = index + 1
+                st.write(f"**{nomor_soal}. {baris['pertanyaan']}**")
                 
-    except FileNotFoundError:
-        st.error("⚠️ File 'Soal_Kuis.xlsx' tidak ditemukan! Pastikan file berada di folder yang sama.")
+                # Menggabungkan huruf A, B, C, D dengan teks opsi
+                pilihan_tampil = (
+                    f"A. {baris['opsi_a']}",
+                    f"B. {baris['opsi_b']}",
+                    f"C. {baris['opsi_c']}",
+                    f"D. {baris['opsi_d']}"
+                )
+                
+                jawaban = st.radio("Pilih jawaban:", pilihan_tampil, index=None, key=f"soal_{index}", label_visibility="collapsed")
+                jawaban_user[index] = jawaban
+                st.write("") 
+                
+            st.divider()
+
+            if st.button("Kirim Jawaban"):
+                if nama_siswa == "" or kelas_siswa == "Pilih Kelas":
+                    st.warning("⚠️ Tunggu dulu! Mohon isi Nama Lengkap dan Kelas Anda di bagian atas sebelum mengirim jawaban.")
+                else:
+                    benar = 0
+                    for index, baris in df.iterrows():
+                        # TRIK CERDAS: Kita hanya mengambil huruf pertama (A/B/C/D) dari jawaban siswa
+                        # Jika siswa memilih "C. Memiliki akal budi...", kita ambil huruf "C" saja
+                        # Lalu dicocokkan dengan kolom jawaban_benar di database
+                        pilihan_siswa = jawaban_user[index][0] if jawaban_user[index] else ""
+                        if pilihan_siswa == baris['jawaban_benar']:
+                            benar += 1
+                    
+                    total_soal = len(df)
+                    nilai_akhir = int((benar / total_soal) * 100)
+                    
+                    if nilai_akhir == 100:
+                        st.success(f"Luar biasa, {nama_siswa}! Nilai Anda Sempurna: {nilai_akhir}")
+                        st.balloons() 
+                    elif nilai_akhir >= 50:
+                        st.warning(f"Cukup baik, {nama_siswa}. Nilai Anda: {nilai_akhir}. Terus semangat belajar!")
+                    else:
+                        st.error(f"Nilai Anda: {nilai_akhir}. Jangan menyerah, {nama_siswa}, mari perbanyak latihan!")
+                    
+                    # Mengirim data ke Supabase (TIDAK ADA YANG BERUBAH DI SINI)
+                    try:
+                        data_dikirim = {
+                            "nama_siswa": nama_siswa,
+                            "kelas": kelas_siswa,
+                            "nilai_akhir": nilai_akhir
+                        }
+                        supabase.table("nilai_kuis").insert(data_dikirim).execute()
+                        st.success("✅ Nilai Anda telah berhasil direkam oleh sistem!")
+                    except Exception as e:
+                        st.error(f"❌ Gagal mengirim nilai ke database: {e}")
+                
     except Exception as e:
-        st.error(f"Terjadi kesalahan pada aplikasi: {e}")
+        st.error(f"Terjadi kesalahan saat menarik soal: {e}")
 
 # ==============================================================================
 # HALAMAN 2: DASHBOARD GURU (PINTU BELAKANG)
